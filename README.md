@@ -1,5 +1,5 @@
 Unfortunatly RenderTextureArrays are not supported on WEBGL.
-Extract the zip to any folder and launch the exe.
+Extract the zip (or copy & paste the "MotionMapsDemo" folder from the zip in downloads) to any folder and launch the exe.
 
 This is a limited demo of about 1km of grass. Async scene Loading is disabled.
 Use the visualizer to see the result of the render texture array. 
