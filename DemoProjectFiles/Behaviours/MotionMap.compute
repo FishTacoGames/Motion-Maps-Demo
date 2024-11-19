@@ -1,0 +1,59 @@
+#pragma kernel CSMain
+
+RWTexture2DArray<float4> ResultArray;
+StructuredBuffer<float4> positionValues; // Object positions (x, y, z, direction float)
+StructuredBuffer<float4> motionValues;   // Motion strengths; (red, unused, length, width)
+StructuredBuffer<float4> sliceOrigins;  // Array of cell centers, one for each slice
+int texSize;               
+uint indexToClear;
+[numthreads(8, 8, 1)]
+void CSMain(uint3 id : SV_DispatchThreadID)
+{
+    float4 origin = sliceOrigins[id.z];
+    float4 color = ResultArray[uint3(id.xyz)];
+    // edge case
+    float2 adjustedPos = float2(id.x, id.y) + origin.xz;
+    float2 minBound = origin.xz - float2(texSize, texSize);
+    float2 maxBound = origin.xz + float2(texSize, texSize);
+
+    if (adjustedPos.x <= minBound.x || 
+        adjustedPos.x >= maxBound.x ||
+        adjustedPos.y <= minBound.y || 
+        adjustedPos.y >= maxBound.y)
+    {
+        return;
+    }
+    if (indexToClear == id.z)
+    {
+        color = lerp(color, float4(0.0, 0.0, 0.0, color.a), 1); // set black
+        ResultArray[uint3(id.xyz)] = color;
+		return;
+    }
+    color = lerp(color, float4(0.0, 0.0, 0.0, color.a), 0.00025); // Fade to black
+
+    // Process objects
+    for (uint i = 0; i < positionValues.Length; i++)
+    {
+        float2 Position = float2(positionValues[i].x, positionValues[i].z);
+
+        // Offset from the current pixel to the object position
+        float2 offset = adjustedPos - Position;
+
+        // Object dimensions
+        float halfLength = motionValues[i].z * 0.5;
+        float halfWidth = motionValues[i].w * 0.5;
+
+        // Check if pixel falls within object bounds
+        if (abs(offset.x) <= halfLength && abs(offset.y) <= halfWidth)
+        {
+            // Blend with object color
+            color = lerp(color, float4(motionValues[i].x, motionValues[i].y, positionValues[i].w, positionValues[i].y), 0.25);
+        }
+        float influenceFactor = 4.0; // enforce a height value on a larger area
+        if (abs(offset.x) <= halfLength * influenceFactor && abs(offset.y) <= halfWidth * influenceFactor)
+        {
+            color.a = max(color.a, positionValues[i].y);
+        }
+    }
+    ResultArray[uint3(id.xyz)] = color;
+}
