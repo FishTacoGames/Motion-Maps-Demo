@@ -11,4 +11,4 @@ Currently the max array size is limited to ease testing and lower performance co
 this can effect border transitions with clearing old information. 
 This Demo does not represent the final state of this project.
 
-If you are prompted with windows defender click "More info" and Run anyway. You can view the ALL project contents in the Project Folder.
+If you are prompted with windows defender click "More info" and Run anyway. You can view the project scripting contents in DemoProjectFiles.
