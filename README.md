@@ -1,1 +1,1 @@
-WebGL Demo is not yet finished.
+The WebGL Demo is not yet complete.
