@@ -22,4 +22,17 @@ namespace Grid_Parameters
     _1024 = 1024,
     _2048 = 2048,
   }
+  public enum ColliderAxis
+  {
+    X,
+    Y,
+    Z
+  }
+  public enum LinkShape
+  {
+    Box,
+    Cylinder,
+    Ellipsoid,
+    Capsule
+  }
 }
