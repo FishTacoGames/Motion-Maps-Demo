@@ -2,57 +2,54 @@
 
 RWTexture2DArray<float4> ResultArray;
 StructuredBuffer<float4> positionValues; // Object positions (x, y, z, direction float)
-StructuredBuffer<float4> motionValues;   // Motion strengths; (red, unused, length, width)
-StructuredBuffer<float4> sliceOrigins;  // Array of cell centers, one for each slice
-int texSize;               
+StructuredBuffer<float4> motionValues;   // Motion strengths; (red, height, length, width)
+StructuredBuffer<float4> sliceOrigins;
+int cellSize;
+int textureSize; 
 uint indexToClear;
+    // Maps positions to texture space using origins and texture res
 [numthreads(8, 8, 1)]
 void CSMain(uint3 id : SV_DispatchThreadID)
 {
     float4 origin = sliceOrigins[id.z];
-    float4 color = ResultArray[uint3(id.xyz)];
-    // edge case
-    float2 adjustedPos = float2(id.x, id.y) + origin.xz;
-    float2 minBound = origin.xz - float2(texSize, texSize);
-    float2 maxBound = origin.xz + float2(texSize, texSize);
+    float pixelSize = (float)cellSize / (float)textureSize;
+    float2 pixelWorldPos = origin.xz - float2(cellSize * 0.5, cellSize * 0.5) + float2(id.x * pixelSize, id.y * pixelSize);
 
-    if (adjustedPos.x <= minBound.x || 
-        adjustedPos.x >= maxBound.x ||
-        adjustedPos.y <= minBound.y || 
-        adjustedPos.y >= maxBound.y)
-    {
-        return;
-    }
+    float4 color = ResultArray[uint3(id.xyz)];
+
+    // Clear the slice?
     if (indexToClear == id.z)
     {
-        color = lerp(color, float4(0.0, 0.0, 0.0, color.a), 1); // set black
+        color = float4(0.0, 0.0, 0.0, 1.0);
         ResultArray[uint3(id.xyz)] = color;
-		return;
+        return;
     }
-    color = lerp(color, float4(0.0, 0.0, 0.0, color.a), 0.00025); // Fade to black
 
-    // Process objects
+    // Fade over time retaining y values
+    color = lerp(color, float4(0.0, color.y, 0.0, color.a), 0.00025);
+
     for (uint i = 0; i < positionValues.Length; i++)
     {
-        float2 Position = float2(positionValues[i].x, positionValues[i].z);
+        float2 offset = pixelWorldPos - positionValues[i].xz;
 
-        // Offset from the current pixel to the object position
-        float2 offset = adjustedPos - Position;
+        // Ellipse semi-major and semi-minor axes (half of length and width)
+        float a = motionValues[i].z * 0.5; // Semi-major axis
+        float b = motionValues[i].w * 0.5; // Semi-minor axis
 
-        // Object dimensions
-        float halfLength = motionValues[i].z * 0.5;
-        float halfWidth = motionValues[i].w * 0.5;
+        // Transform the offset to the ellipse's local space and rotate it for pixel check
+        float cosTheta = cos(positionValues[i].w);
+        float sinTheta = sin(positionValues[i].w);
+        float2 localOffset;
+        localOffset.x = offset.x * cosTheta + offset.y * sinTheta;
+        localOffset.y = -offset.x * sinTheta + offset.y * cosTheta;
+        float ellipseEquation = (localOffset.x * localOffset.x) / (a * a) + (localOffset.y * localOffset.y) / (b * b);
 
-        // Check if pixel falls within object bounds
-        if (abs(offset.x) <= halfLength && abs(offset.y) <= halfWidth)
+        if (ellipseEquation <= 1.0)
         {
-            // Blend with object color
-            color = lerp(color, float4(motionValues[i].x, motionValues[i].y, positionValues[i].w, positionValues[i].y), 0.25);
-        }
-        float influenceFactor = 4.0; // enforce a height value on a larger area
-        if (abs(offset.x) <= halfLength * influenceFactor && abs(offset.y) <= halfWidth * influenceFactor)
-        {
-            color.a = max(color.a, positionValues[i].y);
+            float top = positionValues[i].y + (motionValues[i].y * 0.5);
+            float bottom = positionValues[i].y - (motionValues[i].y * 0.5);
+            color = lerp(color, float4(motionValues[i].x, bottom, positionValues[i].w, top), 0.25);
+            //color.a = positionValues[i].y;
         }
     }
     ResultArray[uint3(id.xyz)] = color;
