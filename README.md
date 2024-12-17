@@ -1,4 +1,4 @@
-Extract the zip (or copy & paste the "MotionMapsDemo" folder from the zip in your downloads) to any folder and launch the exe.
+(Outdated Demo) Extract the zip (or copy & paste the "MotionMapsDemo" folder from the zip in your downloads) to any folder and launch the exe.
 
 Unfortunatly RenderTextureArrays are not supported on WEBGL.
 
